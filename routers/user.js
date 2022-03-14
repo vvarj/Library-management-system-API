@@ -4,6 +4,7 @@ const auth = require('../middleware/auth')
 const orderBook = require('../utils/order')
 const returnBook = require('../utils/return')
 const Book = require('../models/book')
+const History = require('../models/history')
 const router = new express.Router()
 
 
@@ -68,6 +69,16 @@ router.get('/users/me', auth, async (req, res) => {
     }
     
 })
+/// show books purchased , yet to return
+
+router.get('/users/me/mybooks', auth, async (req, res) => {
+    try{
+        res.send(req.user.books_borrowed)
+    }catch(e){
+        res.status(500).send({error:'something went wrong'})
+    }
+})
+
 
 
 router.delete('/users/me', auth, async (req, res) => {
@@ -83,9 +94,8 @@ router.delete('/users/me', auth, async (req, res) => {
 router.post('/users/me/placeOrder', auth, async (req, res) => {
     try {
         const book_id = parseInt(req.body.book_id)
-        const orderdBook = await orderBook(book_id)
-        await req.user.books_borrowed.push(orderdBook)
-        await req.user.save()
+        const orderdBook = await orderBook(book_id,req.user)
+
         res.send({
             message: 'book borrowed !',
             title: orderdBook.title,
@@ -112,13 +122,13 @@ router.post('/users/me/returnBook', auth, async (req, res) => {
         }
 
 
-        const book1 = await returnBook(searchid)
+        const book1 = await returnBook(searchid,req.user)
 
-        req.user.books_borrowed = req.user.books_borrowed.filter((object) => {
-            return object.book_id !== searchid
-        })
+        // req.user.books_borrowed = req.user.books_borrowed.filter((object) => {
+        //     return object.book_id !== searchid
+        // })
 
-        await req.user.save()
+        //await req.user.save()
         res.send({message:'Book returned !',book1});
     }
 
@@ -181,6 +191,48 @@ router.get('/users/me/books/:book_id', auth, async (req, res) => {
         res.status(500).send({ message: 'something went wrong' })
     }
 
+})
+
+// to find history of user
+/// GET /users/me/history?page=1&size=1 
+router.get('/users/me/history', auth, async (req, res) => {
+
+    let { page, size } = req.query
+    let search = {}
+
+    if ((!page) || (!size)) {
+        search = req.query
+    }
+
+
+    if (!page) {
+        page = 1;
+    }
+    if (!size) {
+        size = 3;
+    }
+
+    const limit = parseInt(size)
+    const skip = (page - 1) * size
+
+
+    try {
+
+        const history = await History.find({borrowed_by:req.user._id}).limit(limit).skip(skip);
+
+        if (!history) {
+            return res.status(404).send({ message: 'Empty Records' });
+        }
+        res.send({
+            page, size,
+            history
+        });
+
+    } catch (e) {
+        res.status(500).send({ message: 'something went wrong' })
+    }
+
+    
 })
 
 

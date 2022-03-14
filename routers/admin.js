@@ -3,6 +3,7 @@ const Admin = require('../models/admin')
 const adminAuth = require('../middleware/adminAuth')
 const router = new express.Router()
 const Book = require('../models/book')
+const History = require('../models/history')
 
 
 router.post('/admin', async (req, res) => {
@@ -112,6 +113,49 @@ router.get('/admin/me/books', adminAuth, async (req, res) => {
         res.send({
             page, size,
             books
+        });
+
+    } catch (e) {
+        res.status(500).send({ message: 'something went wrong' })
+    }
+
+
+})
+
+///to find history of all records.....
+
+router.get('/admin/me/records', adminAuth, async (req, res) => {
+
+    let { page, size } = req.query
+    let search = {}
+
+    if ((!page) || (!size)) {
+        search = req.query
+    }
+
+
+    if (!page) {
+        page = 1;
+    }
+    if (!size) {
+        size = 3;
+    }
+
+    const limit = parseInt(size)
+    const skip = (page - 1) * size
+
+
+    try {
+        const history = await History.find(search).populate('borrowed_by').limit(limit).skip(skip);
+
+        if (!history) {
+            return res.status(404).send({ message: 'Empty Records' });
+        }
+
+       // await history.populate('borrowed_by').execPopulate();
+        res.send({
+            page, size,
+            history
         });
 
     } catch (e) {
